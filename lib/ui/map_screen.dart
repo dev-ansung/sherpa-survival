@@ -4,12 +4,14 @@ import 'package:latlong2/latlong.dart';
 
 import '../ai/assistant.dart';
 import '../ai/situation.dart';
+import '../geo/compass_controller.dart';
 import '../geo/geo_data.dart';
 import '../geo/geo_math.dart';
 import '../geo/nps_layers.dart';
 import '../location/location_service.dart';
 import 'map_layers.dart';
 import 'theme.dart';
+import 'topo_3d_viewport.dart';
 
 /// Offline NPS basemap (Park Tiles: trails, roads, water, buildings, park boundary, points of
 /// interest) over a hillshade, with the route out, breadcrumbs and tap-for-details.
@@ -81,7 +83,6 @@ _Style _styleFor(NpsPoint p) {
   }
 }
 
-
 class _MapScreenState extends State<MapScreen> {
   final _map = MapController();
   int _zoomBucket = 14;
@@ -89,6 +90,8 @@ class _MapScreenState extends State<MapScreen> {
   final Map<int, List<Marker>> _markerCache = {};
   List<LatLng>? _pendingFit;
   bool _mapReady = false;
+  late final CompassController _compass;
+  bool _threeD = false;
 
   static const _valley = LatLng(37.7456, -119.5936);
 
@@ -97,6 +100,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    _compass = CompassController();
     _loaded = a.geo != null && a.nps != null;
     a.addListener(_onAssistant);
     a.mapFocus.addListener(_onFocus);
@@ -106,6 +110,7 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
+    _compass.dispose();
     a.removeListener(_onAssistant);
     a.mapFocus.removeListener(_onFocus);
     super.dispose();
@@ -191,7 +196,6 @@ class _MapScreenState extends State<MapScreen> {
         if (seen.length >= n) break;
       }
     }
-
     take(PoiType.water, 3);
     take(null, 3, where: (p) => p.isWayOut);
     take(PoiType.help, 2);
@@ -358,117 +362,126 @@ class _MapScreenState extends State<MapScreen> {
     final live = Listenable.merge([loc, a.activeRoute]);
 
     return Stack(children: [
-      RepaintBoundary(
-        child: FlutterMap(
-          mapController: _map,
-          options: MapOptions(
-            initialCenter: start == null ? _valley : LatLng(start.lat, start.lon),
-            initialZoom: 15,
-            minZoom: 9,
-            maxZoom: 18,
-            backgroundColor: kGround,
-            cameraConstraint: CameraConstraint.contain(bounds: bounds),
-            onMapReady: () {
-              _mapReady = true;
-              _fitPending();
-            },
-            interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-              enableMultiFingerGestureRace: true,
-            ),
-            onPositionChanged: (camera, _) {
-              final b = camera.zoom.floor();
-              if (b != _zoomBucket) setState(() => _zoomBucket = b);
-            },
-            onLongPress: (_, p) {
-              loc.simulate(p.latitude, p.longitude);
-              a.activeRoute.value = null;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Position pinned here. Tap the GPS button to use real GPS.')),
-              );
-            },
-          ),
-          children: [
-            OverlayImageLayer(overlayImages: [
-              // the hillshade is rendered dark; fade it over the light canvas
-              OverlayImage(bounds: bounds, opacity: 0.35, imageProvider: const AssetImage('assets/geo/hillshade.png')),
-            ]),
-            PolygonLayer(polygons: c.park),
-            if (z >= 11) PolygonLayer(polygons: c.water),
-            if (z >= 13) PolylineLayer(polylines: c.streams),
-            if (z >= 14) PolygonLayer(polygons: c.parking),
-            if (z >= 15) PolygonLayer(polygons: c.buildings),
-            PolylineLayer(polylines: c.roads),
-            if (z >= 11) PolylineLayer(polylines: c.trails),
-            // ---- live layers: only these rebuild when the position or route changes ----
-            ListenableBuilder(
-              listenable: loc,
-              builder: (_, _) {
-                final crumbs = [for (final b in loc.breadcrumbs) LatLng(b.lat, b.lon)];
-                return crumbs.length < 2
-                    ? const SizedBox.shrink()
-                    : PolylineLayer(polylines: [
-                        Polyline(points: crumbs, color: kCard, strokeWidth: 7),
-                        Polyline(points: crumbs, color: kWater, strokeWidth: 4),
-                      ]);
+      if (_threeD)
+        Topo3DViewport(
+          breadcrumbs: loc.breadcrumbs,
+          compass: _compass,
+        )
+      else
+        RepaintBoundary(
+          child: FlutterMap(
+            mapController: _map,
+            options: MapOptions(
+              initialCenter: start == null ? _valley : LatLng(start.lat, start.lon),
+              initialZoom: 15,
+              minZoom: 9,
+              maxZoom: 18,
+              backgroundColor: kGround,
+              cameraConstraint: CameraConstraint.contain(bounds: bounds),
+              onMapReady: () {
+                _mapReady = true;
+                _fitPending();
+              },
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                enableMultiFingerGestureRace: true,
+              ),
+              onPositionChanged: (camera, _) {
+                final b = camera.zoom.floor();
+                if (b != _zoomBucket) setState(() => _zoomBucket = b);
+              },
+              onLongPress: (_, p) {
+                loc.simulate(p.latitude, p.longitude);
+                a.activeRoute.value = null;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Position pinned here. Tap the GPS button to use real GPS.')),
+                );
               },
             ),
-            ListenableBuilder(
-              listenable: live,
-              builder: (_, _) {
-                final route = a.activeRoute.value ?? Situation.build(loc, geo, a.router).routeOut;
-                return route == null
-                    ? const SizedBox.shrink()
-                    : PolylineLayer(polylines: [
-                        Polyline(points: route.points, color: kCard, strokeWidth: 9),
-                        Polyline(
-                          points: route.points,
-                          color: kMoss,
-                          strokeWidth: 5,
-                          pattern: route.offTrail ? StrokePattern.dashed(segments: const [10, 8]) : const StrokePattern.solid(),
-                        ),
-                      ]);
-              },
-            ),
-            MarkerLayer(markers: _markersFor(nps, z)),
-            ListenableBuilder(
-              listenable: live,
-              builder: (_, _) {
-                final f = loc.fix;
-                final route = a.activeRoute.value ?? Situation.build(loc, geo, a.router).routeOut;
-                final crumbs = loc.breadcrumbs;
-                return MarkerLayer(markers: [
-                  ..._nearby(f),
-                  if (crumbs.length > 1)
-                    Marker(
-                      point: LatLng(crumbs.first.lat, crumbs.first.lon),
-                      width: 30,
-                      height: 30,
-                      child: const Icon(Icons.trip_origin, color: kWater, size: 24),
-                    ),
-                  if (route != null)
-                    Marker(point: route.target.latLng, width: 40, height: 40, child: const Icon(Icons.flag_circle, color: kClay, size: 38)),
-                  if (f != null)
-                    Marker(
-                      point: LatLng(f.lat, f.lon),
-                      width: 28,
-                      height: 28,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: f.simulated ? kClay : kWater,
-                          border: Border.all(color: Colors.white, width: 3),
-                          boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 6)],
+            children: [
+              OverlayImageLayer(overlayImages: [
+                // the hillshade is rendered dark; fade it over the light canvas
+                OverlayImage(bounds: bounds, opacity: 0.35, imageProvider: const AssetImage('assets/geo/hillshade.png')),
+              ]),
+              PolygonLayer(polygons: c.park),
+              if (z >= 11) PolygonLayer(polygons: c.water),
+              if (z >= 13) PolylineLayer(polylines: c.streams),
+              if (z >= 14) PolygonLayer(polygons: c.parking),
+              if (z >= 15) PolygonLayer(polygons: c.buildings),
+              PolylineLayer(polylines: c.roads),
+              if (z >= 11) PolylineLayer(polylines: c.trails),
+              // ---- live layers: only these rebuild when the position or route changes ----
+              ListenableBuilder(
+                listenable: loc,
+                builder: (_, _) {
+                  final crumbs = [for (final b in loc.breadcrumbs) LatLng(b.lat, b.lon)];
+                  return crumbs.length < 2
+                      ? const SizedBox.shrink()
+                      : PolylineLayer(polylines: [
+                          Polyline(points: crumbs, color: kCard, strokeWidth: 7),
+                          Polyline(points: crumbs, color: kWater, strokeWidth: 4),
+                        ]);
+                },
+              ),
+              ListenableBuilder(
+                listenable: live,
+                builder: (_, _) {
+                  final route = a.activeRoute.value ?? Situation.build(loc, geo, a.router).routeOut;
+                  return route == null
+                      ? const SizedBox.shrink()
+                      : PolylineLayer(polylines: [
+                          Polyline(points: route.points, color: kCard, strokeWidth: 9),
+                          Polyline(
+                            points: route.points,
+                            color: kMoss,
+                            strokeWidth: 5,
+                            pattern: route.offTrail ? StrokePattern.dashed(segments: const [10, 8]) : const StrokePattern.solid(),
+                          ),
+                        ]);
+                },
+              ),
+              MarkerLayer(markers: _markersFor(nps, z)),
+              ListenableBuilder(
+                listenable: loc,
+                builder: (_, _) => MarkerLayer(markers: _nearby(loc.fix)),
+              ),
+              ListenableBuilder(
+                listenable: live,
+                builder: (_, _) {
+                  final f = loc.fix;
+                  final crumbs = loc.breadcrumbs;
+                  final route = a.activeRoute.value;
+                  return MarkerLayer(markers: [
+                    if (crumbs.length > 1)
+                      Marker(
+                        point: LatLng(crumbs.first.lat, crumbs.first.lon),
+                        width: 30,
+                        height: 30,
+                        child: const Icon(Icons.trip_origin, color: kWater, size: 24),
+                      ),
+                    if (route != null)
+                      Marker(point: route.target.latLng, width: 40, height: 40, child: const Icon(Icons.flag_circle, color: kClay, size: 38)),
+                    if (f != null)
+                      Marker(
+                        point: LatLng(f.lat, f.lon),
+                        width: 28,
+                        height: 28,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: f.simulated ? kClay : kWater,
+                            border: Border.all(color: Colors.white, width: 3),
+                            boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 6)],
+                          ),
                         ),
                       ),
-                    ),
-                ]);
-              },
-            ),
-            const SimpleAttributionWidget(source: Text('NPS Park Tiles · USGS · OpenStreetMap')),
-          ],
+                  ]);
+                },
+              ),
+              const SimpleAttributionWidget(source: Text('NPS Park Tiles · USGS · OpenStreetMap')),
+            ],
+          ),
         ),
-      ),
       // ---- overlays ----
       Positioned(
         left: 12,
@@ -557,25 +570,36 @@ class _MapScreenState extends State<MapScreen> {
         bottom: 28,
         child: Column(children: [
           FloatingActionButton.small(
-            heroTag: 'gps',
-            tooltip: 'Use real GPS',
-            onPressed: () async {
-              loc.clearSimulation();
-              final fix = await loc.fixNow();
-              if (fix != null) _map.move(LatLng(fix.lat, fix.lon), 15);
-            },
-            child: const Icon(Icons.my_location),
+            heroTag: 'threeD',
+            tooltip: _threeD ? 'Back to 2D map' : '3D tactical view',
+            backgroundColor: _threeD ? kInk : null,
+            foregroundColor: _threeD ? kCard : null,
+            onPressed: () => setState(() => _threeD = !_threeD),
+            child: Text(_threeD ? '2D' : '3D', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
           ),
-          const SizedBox(height: 8),
-          FloatingActionButton.small(
-            heroTag: 'me',
-            tooltip: 'Center on me',
-            onPressed: () {
-              final f = loc.fix;
-              if (f != null) _map.move(LatLng(f.lat, f.lon), 15);
-            },
-            child: const Icon(Icons.center_focus_strong),
-          ),
+          if (!_threeD) ...[
+            const SizedBox(height: 8),
+            FloatingActionButton.small(
+              heroTag: 'gps',
+              tooltip: 'Use real GPS',
+              onPressed: () async {
+                loc.clearSimulation();
+                final fix = await loc.fixNow();
+                if (fix != null) _map.move(LatLng(fix.lat, fix.lon), 15);
+              },
+              child: const Icon(Icons.my_location),
+            ),
+            const SizedBox(height: 8),
+            FloatingActionButton.small(
+              heroTag: 'me',
+              tooltip: 'Center on me',
+              onPressed: () {
+                final f = loc.fix;
+                if (f != null) _map.move(LatLng(f.lat, f.lon), 15);
+              },
+              child: const Icon(Icons.center_focus_strong),
+            ),
+          ],
         ]),
       ),
     ]);
