@@ -45,7 +45,7 @@ All slide frames are rendered at 1280×720 from the app's real design tokens and
 
 ## Verification checklist
 
-- [ ] Every claim verified: 17 Flutter tests + 58 map-tool tests passing
+- [ ] Every claim verified: 23 Flutter tests + 58 map-tool tests passing
 - [ ] Gemma 4 E2B via LiteRT-LM on Google Tensor documented in ARCHITECTURE.md
 - [ ] All 3D map shots are real MapLibre renders of the bundled offline tilesets
 - [ ] "Built for anyplace" premise consistent across all narration and slides

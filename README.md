@@ -5,7 +5,7 @@
 > **An on-device survival assistant that runs a Gemma LLM on Google Tensor, renders terrain in 3D, and answers navigation, first-aid, and safety questions anywhere — with zero network connection. Demonstrated here with Yosemite National Park.**
 
 [![100% offline](https://img.shields.io/badge/connectivity-100%25%20offline-2ea44f)](#technical-design)
-[![Flutter tests](https://img.shields.io/badge/flutter%20tests-17%2F17%20passing-brightgreen)](#tests)
+[![Flutter tests](https://img.shields.io/badge/flutter%20tests-23%2F23%20passing-brightgreen)](#tests)
 [![Python tests](https://img.shields.io/badge/map--tools%20tests-58%2F58%20passing-brightgreen)](#development-map-tools)
 [![Android + iOS](https://img.shields.io/badge/platform-Android%20%7C%20iOS-informational)](#build-and-run)
 [![Gemma](https://img.shields.io/badge/LLM-Gemma%204%20E2B-blueviolet)](ARCHITECTURE.md)
@@ -68,17 +68,17 @@ The app's trail router (Dijkstra + DEM slope), solar calculator (NOAA, any latit
 |---|---|
 | ![Survival dashboard](docs/screenshots/home_idle.png) | ![Chat answer from offline map data](docs/screenshots/home_chat.png) |
 
-### Streaming Gemma brief & the tactical 3D HUD
+### Streaming Gemma brief & compass-locked survival map
 
-| Streaming Gemma tactical brief with live inference telemetry | Embedded 3D HUD: wireframe ground plane, altitude-gradient trail, live compass |
+| Streaming Gemma tactical brief with live inference telemetry | Survival map in heading-up compass mode: the map rotates with you, the arrow always points where to walk |
 |---|---|
-| ![Streaming Gemma brief](docs/screenshots/home_gemma.png) | ![Tactical 3D HUD](docs/screenshots/trail_map_3d.png) |
+| ![Streaming Gemma brief](docs/screenshots/home_gemma.png) | ![Survival map compass mode](docs/screenshots/trail_map_3d.png) |
 
-### 2D trail map with automatic route-out & the printed park map in 3D
+### Survival-first trail map & the printed park map in 3D
 
-| Offline NPS Park Tiles map with route out, breadcrumbs, nearby water/help | The printed NPS park map draped over the 3D terrain |
+| Survival map: destination arrow, distance/ETA, sunset countdown, grade-coded trails, off-trail escape bearings, one-tap SOS | The printed NPS park map draped over the 3D terrain |
 |---|---|
-| ![2D trail map](docs/screenshots/trail_map.png) | ![Printed park map draped over 3D terrain](docs/screenshots/map3d_park_map.jpg) |
+| ![Survival trail map](docs/screenshots/trail_map.png) | ![Printed park map draped over 3D terrain](docs/screenshots/map3d_park_map.jpg) |
 
 ### First-aid guide & emergency takeover
 
@@ -99,8 +99,9 @@ The app's trail router (Dijkstra + DEM slope), solar calculator (NOAA, any latit
 | **Voice & text Q&A** | Zipformer ASR transcribes on-device; KittenTTS speaks answers | Yes |
 | **Question routing** | Laya zero-shot classifier picks template / guide / Gemma; rule-based fallback when Laya is unavailable | Yes |
 | **Emergency response** | Keyword + classifier cue triggers instant scripted guidance + 911/SOS call to action | Yes |
+| **Survival map** | Destination arrow with live bearing delta, distance/ETA, sunset countdown, off-trail escape bearings, grade-coded trails, one-tap SOS | Yes |
+| **Compass lock** | Heading-up mode rotates the map to your heading so the arrow always points where to walk | Yes |
 | **Offline 2D map** | NPS Park Tiles vector overlay + DEM hillshade + auto-computed route out (Naismith estimates) | Yes |
-| **Tactical 3D HUD** | Live isometric GPS ribbon with altitude gradient, live compass, pitch/zoom HUD, sensor lock — toggle with the **3D** button on the Trail Map | Yes |
 | **Full offline 3D map** | MapLibre 3D screen: aerial imagery or the printed park map draped over real terrain, place search, safety guidance per spot — tap **3D MAP** on the home screen | Yes |
 | **First-aid guide** | Bundled curated guide with BM25 retrieval, step-by-step view, and read-aloud | Yes |
 | **Battery awareness** | Normal / saver / critical power tiers adjust GPS interval and defer Gemma when battery is low | Yes |
@@ -224,21 +225,21 @@ You can also preview the same 3D map in a desktop browser:
 
 After each answer, **long-press the card** to see how Laya classified the query and, for Gemma answers, the exact prompt assembled from situational context.
 
-Use the **demo mode** (long-press the map to move the simulated hiker anywhere in the region, then tap the GPS button to return). For the offline 3D map, tap **3D MAP** in the top bar; inside it, use the search box to fly to any place and read that spot's safety guidance, and the **Satellite / Park map** buttons to switch drape modes. On the Trail Map, use the **3D/2D** button to switch into the embedded tactical HUD.
+Use the **demo mode** (long-press the map to move the simulated hiker anywhere in the region, then tap the GPS button to return). For the offline 3D map, tap **3D MAP** in the top bar; inside it, use the search box to fly to any place and read that spot's safety guidance, and the **Satellite / Park map** buttons to switch drape modes. On the Trail Map, use the **compass lock** button (🧭) to rotate the map with your heading, the **3D** button for the full offline 3D map, and the **SOS** button for emergency mode.
 
 ---
 
 ## Tests
 
 ```bash
-# Flutter unit & widget tests (routing, DEM, way-out router, solar calculations, 3D widgets)
+# Flutter unit & widget tests (routing, DEM, way-out router, solar calculations, survival map)
 flutter test -r expanded
 
 # Python map-tool tests (58 tests against the real NPS map)
 .venv/bin/pytest -v
 ```
 
-All 17 Flutter tests and all 58 map-tool tests pass; `flutter analyze` reports zero issues.
+All 23 Flutter tests and all 58 map-tool tests pass; `flutter analyze` reports zero issues.
 
 ---
 

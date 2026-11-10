@@ -178,7 +178,7 @@ lib/
   map3d/                3D map channel + home-screen launcher button
   rag/                  guide loader + BM25 retriever
   services/             settings service (model picker, TTS engine, latency logs)
-  ui/                   home, map (2D + tactical 3D HUD), guide, settings, emergency takeover
+  ui/                   home, map (survival-first 2D with compass lock + off-trail guidance), guide, settings, emergency takeover
 packages/sherpa_ios/    iOS federated plugin (Swift LiteRT-LM, ASR, TTS, WKWebView 3D map)
 scripts/                asset pipelines (build_android_assets.py, extract_park_tiles.py)
 test/                   17 Flutter unit & widget tests
@@ -198,7 +198,7 @@ docs/demo/              2-minute demo video
 | `pytest` (map tools) | 58/58 passing |
 | Android target | ARM64; Tensor G5 for NPU Gemma; demo mode without park GPS |
 | iOS target | ARM64; `packages/sherpa_ios` federated plugin; Xcode + CocoaPods |
-| Offline 3D map | MapLibre bundled screen + embedded tactical 3D HUD; both verified offline |
+| Offline 3D map | MapLibre bundled screen (MBTiles served locally); verified offline |
 
 ## Fallbacks if time runs short
 
