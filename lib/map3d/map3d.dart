@@ -4,9 +4,9 @@ import 'package:flutter/services.dart';
 import '../location/location_service.dart';
 import '../ui/theme.dart';
 
-/// The offline 3D map: aerial imagery (or the printed NPS park map) draped over real Yosemite
-/// terrain. Native screen on Android (Map3dActivity) and iOS (Map3dViewController) that serves
-/// its page and tiles from the app, so it needs no network.
+/// Offline 3D map: the installed region's park map or aerial imagery draped over its terrain,
+/// with the same bundled trail graph and survival POIs used by the guidance engine. Android and
+/// iOS serve the page and data locally, so the map does not need a network connection.
 class Map3d {
   static const _channel = MethodChannel('survival/map3d');
 

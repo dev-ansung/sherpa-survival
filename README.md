@@ -5,14 +5,14 @@
 > **An on-device survival assistant that runs a Gemma LLM on Google Tensor, renders terrain in 3D, and answers navigation, first-aid, and safety questions anywhere — with zero network connection. Demonstrated here with Yosemite National Park.**
 
 [![100% offline](https://img.shields.io/badge/connectivity-100%25%20offline-2ea44f)](#technical-design)
-[![Flutter tests](https://img.shields.io/badge/flutter%20tests-23%2F23%20passing-brightgreen)](#tests)
+[![Flutter tests](https://img.shields.io/badge/flutter%20tests-24%2F24%20passing-brightgreen)](#tests)
 [![Python tests](https://img.shields.io/badge/map--tools%20tests-58%2F58%20passing-brightgreen)](#development-map-tools)
 [![Android + iOS](https://img.shields.io/badge/platform-Android%20%7C%20iOS-informational)](#build-and-run)
 [![Gemma](https://img.shields.io/badge/LLM-Gemma%204%20E2B-blueviolet)](ARCHITECTURE.md)
 
-![Real offline 3D map rendered by the app's bundled MapLibre viewer — demonstration region Yosemite](docs/screenshots/offline_3d_map.jpg)
+![Offline 3D terrain view with bundled trail, road, and survival POI overlays — Yosemite demo region](docs/screenshots/trail_map_3d.png)
 
-*Real offline 3D map rendered by the app (demonstration region: Yosemite). Every tile is served locally — no signal required.*
+*MapLibre renders the local terrain pack with survival routes and points. The north-up park map is the default; a dedicated 3D control switches to aerial relief while keeping vectors visible.*
 
 | | |
 |---|---|
@@ -68,17 +68,17 @@ The app's trail router (Dijkstra + DEM slope), solar calculator (NOAA, any latit
 |---|---|
 | ![Survival dashboard](docs/screenshots/home_idle.png) | ![Chat answer from offline map data](docs/screenshots/home_chat.png) |
 
-### Streaming Gemma brief & compass-locked survival map
+### Streaming Gemma brief & offline 3D terrain
 
-| Streaming Gemma tactical brief with live inference telemetry | Survival map in heading-up compass mode: the map rotates with you, the arrow always points where to walk |
+| Streaming Gemma tactical brief with live inference telemetry | Aerial terrain mode with local trails, roads, safety POIs, clustered water markers, and relief control |
 |---|---|
-| ![Streaming Gemma brief](docs/screenshots/home_gemma.png) | ![Survival map compass mode](docs/screenshots/trail_map_3d.png) |
+| ![Streaming Gemma brief](docs/screenshots/home_gemma.png) | ![Offline 3D terrain viewer](docs/screenshots/trail_map_3d.png) |
 
-### Survival-first trail map & the printed park map in 3D
+### Survival-first trail map & readable offline 3D plan view
 
-| Survival map: destination arrow, distance/ETA, sunset countdown, grade-coded trails, off-trail escape bearings, one-tap SOS | The printed NPS park map draped over the 3D terrain |
+| Survival map: destination arrow, distance/ETA, sunset countdown, grade-coded trails, off-trail escape bearings, one-tap SOS | North-up phone map with the same local trail network and survival POIs |
 |---|---|
-| ![Survival trail map](docs/screenshots/trail_map.png) | ![Printed park map draped over 3D terrain](docs/screenshots/map3d_park_map.jpg) |
+| ![Survival-first offline trail map](docs/screenshots/trail_map.png) | ![Offline park map in plan view](docs/screenshots/map3d_phone_view.png) |
 
 ### First-aid guide & emergency takeover
 
@@ -102,7 +102,7 @@ The app's trail router (Dijkstra + DEM slope), solar calculator (NOAA, any latit
 | **Survival map** | Destination arrow with live bearing delta, distance/ETA, sunset countdown, off-trail escape bearings, grade-coded trails, one-tap SOS | Yes |
 | **Compass lock** | Heading-up mode rotates the map to your heading so the arrow always points where to walk | Yes |
 | **Offline 2D map** | NPS Park Tiles vector overlay + DEM hillshade + auto-computed route out (Naismith estimates) | Yes |
-| **Full offline 3D map** | MapLibre 3D screen: aerial imagery or the printed park map draped over real terrain, place search, safety guidance per spot — tap **3D MAP** on the home screen | Yes |
+| **Full offline 3D map** | MapLibre terrain with the region's route graph and safety POIs; readable park-map plan view, optional aerial tilt, place search, and safety guidance — tap **3D MAP** | Yes |
 | **First-aid guide** | Bundled curated guide with BM25 retrieval, step-by-step view, and read-aloud | Yes |
 | **Battery awareness** | Normal / saver / critical power tiers adjust GPS interval and defer Gemma when battery is low | Yes |
 | **Model & backend control** | TPU/NPU (Tensor G5), GPU (OpenCL), CPU selection; KittenTTS voice picker; LLM latency table | Yes |
@@ -142,7 +142,7 @@ The app's trail router (Dijkstra + DEM slope), solar calculator (NOAA, any latit
 | KittenTTS | Neural speech synthesis | On-device, LiteRT |
 | Region data & guide | Reference content (any place) | Bundled with the app |
 | Trail router | Way-out routing + Naismith estimates | Pure Dart, offline DEM + trail graph |
-| Offline 3D map | MapLibre terrain + imagery/park-map drape | Native screen (Android `Map3dActivity`, iOS `Map3dViewController`), tiles served locally |
+| Offline 3D map | MapLibre DEM + imagery/park-map drape + locally bundled route graph and safety POIs | Native Android/iOS screen; tiles and vector assets served locally |
 
 Flutter implements the UI, location services, retrieval, routing policy, and the tactical 3D HUD. Android (Kotlin) and iOS (Swift) each host the LiteRT inference runtime and audio pipeline behind a shared method-channel contract (`survival/ai`, `survival/map3d`).
 
@@ -204,8 +204,8 @@ You can also preview the same 3D map in a desktop browser:
   --tiles pdf=assets/maps/yosemite/yosemite.mbtiles \
   --tiles terrain=assets/maps/yosemite/yosemite-terrain.mbtiles \
   --tiles imagery=assets/maps/yosemite/yosemite-imagery.mbtiles \
-  --static assets/map3d
-# open http://127.0.0.1:8766/
+  --static .
+# open http://127.0.0.1:8766/assets/map3d/index.html
 ```
 
 ---
@@ -225,7 +225,7 @@ You can also preview the same 3D map in a desktop browser:
 
 After each answer, **long-press the card** to see how Laya classified the query and, for Gemma answers, the exact prompt assembled from situational context.
 
-Use the **demo mode** (long-press the map to move the simulated hiker anywhere in the region, then tap the GPS button to return). For the offline 3D map, tap **3D MAP** in the top bar; inside it, use the search box to fly to any place and read that spot's safety guidance, and the **Satellite / Park map** buttons to switch drape modes. On the Trail Map, use the **compass lock** button (🧭) to rotate the map with your heading, the **3D** button for the full offline 3D map, and the **SOS** button for emergency mode.
+Use the **demo mode** (long-press the map to move the simulated hiker anywhere in the region, then tap the GPS button to return). For the offline 3D map, tap **3D MAP** in the top bar; search any place to see its safety guidance. The viewer starts north-up on the labeled park map with route-graph trails, roads, and safety POIs; tap **3D** to switch to aerial terrain and back, or use the **Aerial / Park map** buttons to choose a base layer. Water-source points are not verified potable. On the Trail Map, use the **compass lock** button (🧭) to rotate the map with your heading, the **3D** button for the full offline map, and the **SOS** button for emergency mode.
 
 ---
 
@@ -239,7 +239,7 @@ flutter test -r expanded
 .venv/bin/pytest -v
 ```
 
-All 23 Flutter tests and all 58 map-tool tests pass; `flutter analyze` reports zero issues.
+All 24 Flutter tests and all 58 map-tool tests pass; `flutter analyze` reports zero issues.
 
 ---
 
@@ -327,9 +327,7 @@ Tests against the real map are skipped when `data/yosemite.pdf` (or `$YOSEMITE_M
 
 ## Demo video
 
-A 2-minute walkthrough showing every feature of the app — voice Q&A, the four-tier answer strategy, the offline 3D and 2D maps, the first-aid guide, emergency mode, and hardware controls — is included in the repository:
-
-[**Watch the 2-minute demo**](docs/demo/sherpa_demo_2min.mp4)
+The previous frame-based preview is superseded and is not the final demo. The new 2-minute video will use continuous recordings of real app interactions; final assembly is waiting on review of the [recording script](docs/demo/recording_script.md).
 
 ---
 
