@@ -28,7 +28,7 @@ Retrace follows the recorded points in reverse. Gemma can use how far you’ve m
 
 *Retrace with a simulated GPS track to Happy Isles Trailhead.*
 
-In Yosemite, the planner searches a trail graph whose segments store coordinates, distance, and elevation change. MapLibre draws the route, recorded track, and current position, along with a bearing back to the trail when you’re off it.
+In Yosemite, the planner uses Dijkstra’s algorithm to find a route through trail segments that store coordinates, distance, and elevation change. MapLibre draws the route, recorded track, and current position, along with a bearing back to the trail when you’re off it.
 
 MapLibre drapes the Park map or aerial imagery over a mesh built from local elevation tiles. Tap **3D** to tilt the camera over the selected layer.
 
@@ -50,7 +50,7 @@ Laya scores intent, urgency, and the need for reasoning. The app combines those 
 
 ## How we used LiteRT
 
-Flutter handles the interface and route calculations. Native code runs the models and streams generated tokens back to Flutter.
+Flutter handles the interface and route calculations. It calls the native models through a method channel and receives generated tokens over an event channel. We used preconverted LiteRT Community models from Hugging Face so we could spend the hackathon integrating them and testing on the Pixel.
 
 | Stage | Model | Runtime | Pixel backend |
 | --- | --- | --- | --- |
@@ -79,6 +79,8 @@ LiteRT-LM runs Gemma 4 E2B on Android and iOS. The standard E2B bundle is **2.59
 **Transcribe first.** A local transcript lets Laya route voice questions while Gemma is still unloaded.
 
 **Try real questions.** Laya matched guide topics more consistently than it classified broad intent. Combining its scores with cues in the question helped us distinguish a lookup from a request for advice.
+
+**Put the model controls in Settings.** Switching the model, accelerator, and voice on the Pixel let us test configurations and show the differences during the demo.
 
 **Measure from the tap.** Time from submission to first visible text includes the model load the hiker waits for.
 
