@@ -10,56 +10,48 @@ On your way back to the trailhead, you make out the shape of a bear in the dista
 
 We built Sherpa Survival to make that possible on Android and iOS.
 
-Sherpa uses your location history, local terrain, and a field guide to answer questions offline, even if you’ve wandered off the mapped trail.
+Out on a hike or a bike ride, you might have half a battery left and both hands busy. We built Sherpa to run on the phone so you can still look up a route or ask for help when you lose service.
 
 ## What we built
 
-Sherpa calculates routes from the offline map, answers common safety questions from its field guide, and uses Gemma for questions that need judgment.
+We started with the questions we’d ask on a trail. “Where’s the nearest water?” needs a position and a route. “What do I do if I see a bear?” can use the field guide. “I’m cold, wet, and losing light. Should I keep going?” is the kind of question we send to Gemma. We give it the phone’s location, recent progress, time to sunset, a route out, and relevant guide excerpts.
 
-![On-device architecture. Text goes through Laya and app routing rules. Photos go directly to Gemma. Offline GPS, map and guide data feed the reply paths and the Trail Map.](blog-assets/architecture.png)
+![Sherpa’s on-device architecture showing how text and photos reach the answer paths and how offline data feeds the assistant and Trail Map.](blog-assets/architecture.png)
 
-### A track gives the assistant more than a pin
+On a Pixel, hold the mic to record and release it when you’re done. Zipformer transcribes up to 16 seconds of 16 kHz audio on the phone. Laya takes that transcript just as it would a typed question. It scores intent, urgency, and whether the question needs reasoning. Our routing rules use those scores and cues in the question to choose the map, the guide, or Gemma. If the app detects an emergency, it shows the scripted guidance first.
 
-Sherpa records latitude, longitude, and time when a new fix is 25 metres away or two minutes newer than the last recorded point. It gets current elevation from the offline terrain grid or the phone’s altitude reading.
+![Decision tree for text questions showing the emergency script, map lookup, field guide, and Gemma branches.](blog-assets/decision-tree.png)
 
-Retrace follows the recorded points in reverse. Gemma can use how far you’ve moved in the past hour alongside the route planner’s walking estimate, which uses distance and ascent.
+We considered using Gemma’s native audio input. With a transcript, we can route a spoken question before we load Gemma. A photo takes its own path. We resize it to a maximum of 640 pixels on the longest edge, compress it as JPEG, and send it to Gemma with the question.
 
-![Sherpa’s phone-width Trail Map preview in Retrace mode, showing the route toward Happy Isles Trailhead and an off-trail notice.](blog-assets/trail-map.jpg)
+![Audio is transcribed on the phone for routing. A resized JPEG goes to Gemma with the question.](blog-assets/multimodal.png)
 
-*Retrace with a simulated GPS track to Happy Isles Trailhead.*
+### Getting back to the trailhead
 
-In Yosemite, the planner uses Dijkstra’s algorithm to find a route through trail segments that store coordinates, distance, and elevation change. MapLibre draws the route, recorded track, and current position, along with a bearing back to the trail when you’re off it.
+In Yosemite, we use Dijkstra’s algorithm on a trail graph, with a higher cost for uphill segments. Distance and climb give us a walking estimate. We also keep a breadcrumb when a GPS fix is at least 25 metres from the last point or at least two minutes newer. The recorded coordinates and timestamps let us draw your track in reverse for **Retrace** and tell Gemma how far you moved in the past hour.
 
-MapLibre drapes the Park map or aerial imagery over a mesh built from local elevation tiles. Tap **3D** to tilt the camera over the selected layer.
+![Sherpa in Retrace mode, with the recorded track toward Happy Isles Trailhead.](blog-assets/trail-map.jpg)
 
-![Two live views of the same Yosemite Park map around Half Dome, with matching map centers and Park map selected at both camera pitches.](blog-assets/park-map-tilt.jpg)
+*Retrace with a simulated GPS track in Yosemite.*
 
-### Speech and photos take different paths
+MapLibre draws the route and track over the map. With the local elevation tiles installed, it drapes the Park map or aerial imagery over the terrain. Tap **3D** to tilt the camera over whichever layer you’re looking at.
 
-Hold to record and release to transcribe. On Pixel, Zipformer takes up to 16 seconds of 16 kHz audio and passes the transcript to the text router.
-
-Sherpa caps the longest edge of a photo at 640 pixels, compresses it as JPEG, and sends it to Gemma with the question.
-
-![Audio becomes a local transcript for routing. A camera or gallery image is resized and compressed as JPEG, then sent to Gemma with the question.](blog-assets/multimodal.png)
-
-### When a text question needs Gemma
-
-Laya scores intent, urgency, and the need for reasoning. The app combines those scores with cues in the text. “Where’s the nearest trailhead?” goes to the route planner. “Should I keep going or head back?” goes to Gemma with local context such as daylight, recent progress, the route out, and a guide excerpt.
-
-![Decision tree for text requests. Laya scores the text and app rules choose the emergency script, a calculated lookup, a guide entry, or Gemma.](blog-assets/decision-tree.png)
+![The Yosemite Park map around Half Dome, shown north-up and tilted with the same layer selected.](blog-assets/park-map-tilt.jpg)
 
 ## How we used LiteRT
 
-Flutter handles the interface and route calculations. It calls the native models through a method channel and receives generated tokens over an event channel. We used preconverted LiteRT Community models from Hugging Face so we could spend the hackathon integrating them and testing on the Pixel.
+We used preconverted models from LiteRT Community on Hugging Face and spent the hackathon getting them to work together on a Pixel. Flutter handles the interface and route calculations. On Android, a method channel sends requests to Kotlin, and an event channel carries generated tokens back to Flutter.
 
 | Stage | Model | Runtime | Pixel backend |
 | --- | --- | --- | --- |
 | Speech recognition | Zipformer CTC | LiteRT | GPU |
 | Text classification | Laya Multilingual | LiteRT | GPU |
-| Text and image generation | Gemma 4 E2B-it | LiteRT-LM | Tensor G5 NPU with the optimized bundle |
+| Text and image generation | Gemma 4 E2B-it | LiteRT-LM | Tensor G5 TPU with the optimized bundle |
 | Text-to-speech | KittenTTS nano | LiteRT | CPU |
 
-LiteRT-LM runs Gemma 4 E2B on Android and iOS. The standard E2B bundle is **2.59 GB**, compared with **3.66 GB** for E4B. Sherpa loads Gemma on demand, reuses it for follow-ups, and releases it after five idle minutes. On a compatible Pixel, the app can retry on the GPU with the standard bundle if the optimized TPU bundle fails to load. [E2B model files](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/tree/main) · [E4B model files](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/tree/main)
+We chose Gemma 4 E2B because it handles text and photos in a 2.59 GB standard bundle. The standard E4B bundle is 3.66 GB. LiteRT-LM runs Gemma on Android and iOS. On a compatible Pixel, we use the Tensor G5 bundle and can retry with the standard GPU bundle if loading fails. [E2B model files](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/tree/main) · [E4B model files](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/tree/main)
+
+The map and field guide are ready while Gemma is unloaded. We load the model when the first question needs it, keep it around for follow-ups, and free the memory after five minutes of inactivity. On Pixel, we also check location less often in battery saver.
 
 ### Pixel GPU vs. TPU
 
@@ -76,17 +68,13 @@ LiteRT-LM runs Gemma 4 E2B on Android and iOS. The standard E2B bundle is **2.59
 
 ## What we learned
 
-**Transcribe first.** A local transcript lets Laya route voice questions while Gemma is still unloaded.
+From the start, we had fun challenging each other on which problem was worth solving. We had a few hours and a stack that was new to most of us. Narrowing the build early gave us time to try the app on a real Pixel while we were still making changes.
 
-**Try real questions.** Laya matched guide topics more consistently than it classified broad intent. Combining its scores with cues in the question helped us distinguish a lookup from a request for advice.
-
-**Put the model controls in Settings.** Switching the model, accelerator, and voice on the Pixel let us test configurations and show the differences during the demo.
-
-**Measure from the tap.** Time from submission to first visible text includes the model load the hiker waits for.
+Our biggest surprise was how useful a simple Settings screen became. We could switch the model, the hardware it ran on, and the voice on the spot. That made the app easier to test and much easier to demo. If you’re building something similar, get it running on the device early and keep those controls within reach.
 
 ## What’s next
 
-We want hikers to download region packs for parks beyond Yosemite and carry the same offline map, field guide, and assistant into new terrain.
+We’d like to bring Sherpa to more parks. Download a region before you leave and take the same offline map, field guide, and assistant with you.
 
 ## Team
 
