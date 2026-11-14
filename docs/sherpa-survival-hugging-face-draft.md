@@ -90,7 +90,7 @@ We want hikers to download region packs for parks beyond Yosemite and carry the 
 
 ## Team
 
-- An Sung
-- Anirudh Kulkarni
+- An Sung · [LinkedIn](https://www.linkedin.com/in/dev-ansung/)
+- Anirudh Kulkarni · [LinkedIn](https://www.linkedin.com/in/anirudh-kulkarni1/)
 - Chengjiang Long · [LinkedIn](https://www.linkedin.com/in/chengjiang-long-a7702478)
 - Min Thant Kyaw · [LinkedIn](https://www.linkedin.com/in/min-thant-kyaw-3075901b7)
