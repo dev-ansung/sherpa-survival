@@ -6,7 +6,7 @@ You’re on a camping trip, walking on a quiet trail when it starts to rain. It�
 
 Then you remember you installed Sherpa Survival. You open it and see your position, the nearby trails, and the path you’ve walked so far.
 
-On your way back to the trailhead, you make out the shape of a bear in the distance. You whisper, “I see a bear. What should I do?” Sherpa can pull up its offline wildlife guide right away. You keep your distance and give the bear room. Later, back at the campsite, you ask how to start a fire. [Yosemite wildlife guidance from the National Park Service](https://www.nps.gov/thingstodo/wildlife-safety-in-yosemite.htm)
+On your way back to the trailhead, you make out the shape of a bear in the distance. You whisper, “I see a bear. What should I do?” Sherpa can pull up its offline wildlife guide right away. You keep your distance and give the bear room. Later, back at the campsite, you ask how to start a fire.
 
 We built Sherpa Survival to make that possible on Android and iOS.
 
